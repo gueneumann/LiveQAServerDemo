@@ -190,7 +190,7 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
         		// IP address and port
         		// "localhost" or "134.96.187.212"
         		// talk to it via: http://localhost:11000
-                        new TrecLiveQaDFKIServer("localhost", 11000);
+                        new TrecLiveQaDFKIServer(11000);
         server.start();
         System.out.println(server.getListeningPort());
         System.in.read();
