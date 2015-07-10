@@ -1,6 +1,15 @@
 package org.trec.liveqa;
 
+import java.io.BufferedWriter;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.File;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -69,6 +78,12 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
         super(port);
     }
 
+    
+    private static BufferedWriter getWriter(String fileLocation) throws FileNotFoundException {
+    	//System.out.println("Appending File "+ fileLocation);
+        return new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(fileLocation))));
+    }
+    
     @Override
     public Response serve(IHTTPSession session) {
         // extract get time from system
@@ -148,6 +163,21 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
         return PARTICIPANT_ID;
     }
 
+    protected void StoringQs(String qid, String title, String body, String category)
+            throws InterruptedException {
+    	try  {
+    		//BufferedWriter bw=getWriter("data/CorpusOfLiveQs.txt");
+           	BufferedWriter bw=new BufferedWriter(new FileWriter("data/CorpusOfLiveQs.txt",true));    	   
+    		bw.append('\n'+qid+'\n'+title+'\n'+body+'\n'+category+'\n');
+            bw.append("\n--------  ######## --------\n");
+            bw.flush();
+            
+    	} catch (IOException e) {
+    	    e.printStackTrace();
+    	}    	
+    
+    }
+    
     /**
      * Server's algorithmic payload.
      * 
@@ -160,7 +190,9 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
      */
     protected AnswerAndResources getAnswerAndResources(String qid, String title, String body, String category)
                     throws InterruptedException {
-        return new AnswerAndResources("DFKI best answer", "resource1,resource2");
+    	StoringQs(qid,title,body,category);
+    	System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);    	
+        return new AnswerAndResources("DFKI - answer for "+title, "resource1,resource2");
     }
 
     protected static class AnswerAndResources {
@@ -184,6 +216,9 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
     }
 
     // ---------------------------------------------
+
+    
+
 
     public static void main(String[] args) throws IOException {
         TrecLiveQaDFKIServer server =
