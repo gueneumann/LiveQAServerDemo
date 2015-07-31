@@ -188,26 +188,39 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
 	 * @return server's answer and a list of resources
 	 * @throws InterruptedException
 	 */
-	protected AnswerAndResources getAnswerAndResources(String qid, String title, String body, String category)
+	protected AnswerAndResources getAnswerAndResources(String qid, String title, String body, String category) 
 			throws InterruptedException {
+
+		AnswerAndResources answerAndResource = new AnswerAndResources("noAnswer", "noResource");
 		if (qid != null) {
-			StoringQs(qid,title,body,category);
-			System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);    	
+			try {
+
+
+				System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);   
+
+				StoringQs(qid,title,body,category);
+
+				ClassifyQ classifyq = new ClassifyQ();
+				String answer="";
+
+				try {
+					answer=classifyq.analyzeYQsnippet(title,body,category);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
+				if (answer != "") 
+					answerAndResource = new AnswerAndResources(answer, "resources");
+
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}  	
 		}
-
-		ClassifyQ classifyq = new ClassifyQ();
-		String answer="";
-
-		try {
-			answer=classifyq.analyzeYQsnippet(title,body,category);
-		} catch (IOException e) {
-			System.err.println("");
-		}
-
-		if (answer.isEmpty())
-			return new AnswerAndResources("noAnswer", "noResource");
-		return new AnswerAndResources(answer, "resources");
-
+		else
+			answerAndResource = new AnswerAndResources("clickedURL", "noResource");
+		return answerAndResource;
 	}
 
 	protected static class AnswerAndResources {
