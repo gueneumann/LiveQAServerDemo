@@ -194,7 +194,19 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
 			StoringQs(qid,title,body,category);
 			System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);    	
 		}
-		return new AnswerAndResources("DFKI - answer for "+title, "resource1,resource2");
+		
+        ClassifyQ classifyq = new ClassifyQ();
+        String answer="";
+
+        try {
+                        answer=classifyq.analyzeYQsnippet(title,body,category);
+                } catch (IOException e) {
+                        System.err.println("");
+                }
+
+        System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);
+        return new AnswerAndResources("DFKI - answer for "+title, ": "+answer+"\nresource1:\nresource2:");
+
 	}
 
 	protected static class AnswerAndResources {
