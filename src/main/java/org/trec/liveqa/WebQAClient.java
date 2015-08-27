@@ -27,7 +27,7 @@ public class WebQAClient {
 
 		
 		String filename = "data/properties_client.txt";   
-		
+		String result ="";
 
 		File filename_f = new File (filename);		
 
@@ -35,7 +35,7 @@ public class WebQAClient {
 		try {
 			propInFile = new FileInputStream(filename_f);
 		} catch (FileNotFoundException e1) {
-			e1.printStackTrace();
+			//e1.printStackTrace();
 			System.out.println("cannot find properties file");
 		} 
 
@@ -44,9 +44,9 @@ public class WebQAClient {
 		try {
 			p2.loadFromXML(propInFile);
 		} catch (InvalidPropertiesFormatException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		} catch (IOException e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 
 		XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl(); 
@@ -60,10 +60,13 @@ public class WebQAClient {
 		config.setServerURL(new URL(serverUrl));
 		config.setEnabledForExceptions(true);
 		config.setConnectionTimeout(60*100);
-		config.setReplyTimeout(60 * 1000);            
+		config.setReplyTimeout(60 * 1000);
+		try{
 		XmlRpcClient client = new XmlRpcClient();
+		
 		client.setConfig(config);
 
+		
 
 		Vector<String> v = new Vector<String>();
 		v.add(question);
@@ -71,9 +74,15 @@ public class WebQAClient {
 		//    System.out.println("execute client");
 		
 		
-		String result = (String) client.execute("test.startController", v);
+		 result = (String) client.execute("test.startController", v);
 		//  System.out.println("wait for reply");
 		//System.out.println(result);
+		}
+		catch(Exception e)
+		{
+			//System.err.print("Exception is -"+e);
+		}
+
 
 		return result;
 	}

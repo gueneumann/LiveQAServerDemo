@@ -11,8 +11,10 @@ import java.security.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -190,13 +192,19 @@ public class ClassifyQ {
 
 		while (reMatcher.find()) {
 			sentence=reMatcher.group();
-			System.out.println("sentence:"+sentence);
+			//System.out.println("sentence:"+sentence);
+			
+			// Remove paranthesis in the text for WebQA Client
+			sentence.replace("(","");
+			sentence.replace(")","");
+			
 			str.clear();
 			if ( Pattern.matches("(.*(\\s|^)it\\s.*)|(.*(\\s|^)that\\s.*)|(.*(\\s|^)this\\s.*)|(.*(\\s|^)their\\s.*)|(.*(\\s|^)these\\s.*)|(.*(\\s|^)him\\s.*)|(.*(\\s|^)her\\s.*)|(.*(\\s|^)[Hh][Ee][Ll][Pp].*)|(.*(\\s|^)[Pp][Ll][Ee][Aa][Ss][Ee].*)|(.*\\?\\s*$)",sentence ))
 			{
 				if ( previous_sentence != "")
 					buffer.add(previous_sentence);
 			}
+			
 			else
 				buffer.clear();
 
@@ -214,6 +222,7 @@ public class ClassifyQ {
 				previous_sentence=""; // don't store previous sentence if already marked as important
 				buffer.clear();
 				returnstr.addAll(str);
+				
 			}
 			else
 				previous_sentence=sentence;
@@ -233,34 +242,12 @@ public class ClassifyQ {
 		
 		
 		/* in case of factoid questions */
-		if (contains(LOCATION_QUESTION_MARKS,nlQueryTmp) || contains(PERSON_QUESTION_MARKS,nlQueryTmp) || contains(DATE_QUESTION_MARKS,nlQueryTmp) || contains(NUM_QUESTION_MARKS,nlQueryTmp) || contains(TEMP_QUESTION_MARKS,nlQueryTmp) || contains(PERIOD_QUESTION_MARKS,nlQueryTmp) )
-			return 1;
-		
+		//if (contains(LOCATION_QUESTION_MARKS,nlQueryTmp) || contains(PERSON_QUESTION_MARKS,nlQueryTmp) || contains(DATE_QUESTION_MARKS,nlQueryTmp) || contains(NUM_QUESTION_MARKS,nlQueryTmp) || contains(TEMP_QUESTION_MARKS,nlQueryTmp) || contains(PERIOD_QUESTION_MARKS,nlQueryTmp) )
+		if ( true)
+		     return 1;		
 		else
 			return 0;
 			
-			
-		/*
-		if (contains(LOCATION_QUESTION_MARKS,nlQueryTmp))
-			detectedExpectedAnswer = LOCATION;
-		else
-			if (contains(PERSON_QUESTION_MARKS,nlQueryTmp))
-				detectedExpectedAnswer = PERSON;
-			else
-				if (contains(DATE_QUESTION_MARKS,nlQueryTmp))
-					detectedExpectedAnswer = DATE;
-				else
-					if (contains(NUM_QUESTION_MARKS,nlQueryTmp))
-						detectedExpectedAnswer = NUMBER;
-					else
-						if (contains(TEMP_QUESTION_MARKS,nlQueryTmp))
-							detectedExpectedAnswer = TEMP;
-						else
-							if (contains(PERIOD_QUESTION_MARKS,nlQueryTmp))
-								detectedExpectedAnswer = PERIOD;
-							else
-								detectedExpectedAnswer = UNKNOWN;
-		*/
 	}	
 	
 	private boolean contains(TreeSet words, String query)
@@ -285,49 +272,104 @@ public class ClassifyQ {
         return new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(fileLocation),true)));
     }
 	
-	public String analyzeYQsnippet(String title,String body,String categ) throws  IOException
+	public String analyzeYQsnippet(String title,String body,String categ,Patterns pat,int maxtime,String searchengine) throws  IOException
 	{
 		List<String> scope_body=new ArrayList<>();
 		List<String> scope_title=new ArrayList<>();
 		WebQAClient webqaclient = new WebQAClient();
+		//Map<String,String> answerunit=new HashMap();
 		ParseXMLString parser = new ParseXMLString();
-		String answer = "";
-		String tempanswer="";
+		String answer = "",answerunit="";
+		
 		boolean webqaflag = false;
 		String webqalogfile = "data/WebQAClient.log";
 		String qalogfile = "data/QA.log";
+		String towebqafile = "data/TowebQA.txt";
+		String nottowebqafile = "data/notTowebQA.txt";
+		
+		
+		BufferedWriter replyxml = getWriter("webqa.xml");
 		BufferedWriter webqalog = getWriter(webqalogfile);
 		BufferedWriter qalog = getWriter(qalogfile);
+		BufferedWriter towebqa = getWriter(towebqafile);
+		BufferedWriter nottowebqa = getWriter(nottowebqafile);
+		
+		/* To be removed */
+		int webqacallcount=0;
 		
 		Date date = new Date();
 		SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy h:mm:ss a");
 		String formattedDate = sdf.format(date);
 		
         // Reduce the scope of the question to key context
-		scope_body=findoutkeyQ(body);
-		scope_title=findoutkeyQ(title);
 		
+		if ( body != null)
+			scope_body=findoutkeyQ(body);
+		
+		if ( title != null)
+			scope_title=findoutkeyQ(title);
+
 		//System.out.println("Scope_body - " + scope_body.toString()+","+scope_body.size());
 		//System.out.println("Scope title - " + scope_title.toString());
 
+
+		
+		
 		for ( String keysentence:scope_title)
 		{
 			if ( analyzeQuery(keysentence) == 1 )
 			{
 				webqaflag=true;
-				webqalog.append("To WebQA: "+sdf.format(date)+":"+keysentence+"\n");
-				System.out.println("To WebQA :"+keysentence+"\n");
+				webqalog.append("To WebQA(title): "+sdf.format(date)+":"+keysentence+"\n");
+				
+				
+				
 				try {
-					tempanswer=parser.retrieve_first(webqaclient.answers(keysentence));
-				} catch (XmlRpcException e) {
+				
+					webqacallcount++;
+					
+					
+					keysentence=keysentence.replaceAll("[^a-zA-Z0-9\\s]"," ");
+					
+					// Below line is to search in the giga search open source api
+					keysentence = keysentence + " "+searchengine;
+					
+					if ( keysentence.length()>150)
+					{
+					
+					String xmlstring=webqaclient.answers(keysentence.substring(0,150));
+				
+					replyxml.write(xmlstring);
+					replyxml.flush();
+					
+					parser.retrieve_from_urls(keysentence.substring(0,150),xmlstring,pat,maxtime);
+					
+					
+
+				
+					}
+					else if ( keysentence !="" )
+					{
+			        String xmlstring=webqaclient.answers(keysentence);
+					replyxml.write(xmlstring);
+					replyxml.flush();
+			        answerunit=parser.retrieve_from_urls(keysentence,xmlstring,pat,maxtime);
+
+							
+					}
+				} 
+				//catch (XmlRpcException e) {		
+				catch (Exception e) {
 					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				webqalog.append("Predicted Answer:"+tempanswer+"\n");
+					System.out.println("error in webqa - "+keysentence+"\n");
+					//e.printStackTrace();
+				}				
+				//webqalog.append("Predicted Answer:"+answerunit+"\n");
 				webqalog.flush();
-				answer=answer + tempanswer;
+				answer=answer + answerunit;
 			}
 		}
+		
 
 		for ( String keysentence:scope_body)
 		{
@@ -335,19 +377,71 @@ public class ClassifyQ {
 			if ( analyzeQuery(keysentence) == 1 )
 			{
 				webqaflag = true;
-				webqalog.append("To WebQA:"+sdf.format(date)+": "+keysentence+"\n");
-				System.out.println("To WebQA 2:"+keysentence+"\n");
+				webqalog.append("To WebQA (body):"+sdf.format(date)+": "+keysentence+"\n");
+				//System.out.println("To WebQA 2:"+keysentence+"\n");
 				try {
-					tempanswer=parser.retrieve_first(webqaclient.answers(keysentence));
-				} catch (XmlRpcException e) {
+					
+					
+					webqacallcount++;
+					
+					
+					keysentence=keysentence.replaceAll("[^a-zA-Z0-9\\s]"," ");
+					
+					// Below line is to search in the giga search open source api
+					keysentence = keysentence + " "+searchengine;
+					
+					
+					if ( keysentence.length() > 150)
+					{
+					
+						String xmlstring=webqaclient.answers(keysentence.substring(0,150));
+						replyxml.write(xmlstring);
+						replyxml.flush();
+						answerunit=parser.retrieve_from_urls(keysentence.substring(0,150),xmlstring,pat,maxtime);
+
+					}
+					
+					else if ( keysentence !="" )
+					{
+
+						String xmlstring=webqaclient.answers(keysentence);
+						replyxml.write(xmlstring);
+						replyxml.flush();
+						answerunit=parser.retrieve_from_urls(keysentence,xmlstring,pat,maxtime);
+							
+					}
+					
+					}// catch (XmlRpcException e) {
+				   catch (Exception e) {	
+					   
 					// TODO Auto-generated catch block
-					e.printStackTrace();
+					
+					System.out.println("error in webqa - "+keysentence+"\n length of the question -"+keysentence.length()+"\n");
+					//e.printStackTrace();
+			
 				}
-				webqalog.append("Predicted Answer:"+tempanswer+"\n");
+				//webqalog.append("Predicted Answer:"+answerunit+"\n");
 				webqalog.flush();
 				
 			}
 		}
+		
+		/* 3 lines to be removed later*/
+		if ( webqaflag == true)
+		{
+			webqalog.append("----------------------\n");
+			towebqa.append("title:"+title+"\nscopetitle:"+scope_title + "\n"+ "body:"+body+"\nscope body:"+scope_body+"\n");
+		    towebqa.flush();
+		    towebqa.close();
+		    
+		}
+		else
+			nottowebqa.append("title:"+title+"\nbody:"+body+"\n");
+		    nottowebqa.flush();
+		    nottowebqa.close();
+			
+			
+		webqalog.flush();
 		
 		if ( webqaflag == true && answer.matches(".*[a-zA-Z0-9].*"))
 		{
@@ -360,8 +454,8 @@ public class ClassifyQ {
 		webqalog.close();
 		qalog.flush();
 		qalog.close();
+		replyxml.close();
 		return answer;
 	}
 
 }
-

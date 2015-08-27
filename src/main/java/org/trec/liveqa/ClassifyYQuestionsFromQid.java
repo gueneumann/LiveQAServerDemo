@@ -41,6 +41,7 @@ import org.jsoup.nodes.Element;
  * @author yuvalp@yahoo-inc.com
  * 
  */
+
 public class ClassifyYQuestionsFromQid {
 
     public interface ElementPredicate {
@@ -50,6 +51,7 @@ public class ClassifyYQuestionsFromQid {
          * @param e
          * @return
          */
+    	
         public boolean check(Element e);
         
         public String getText(Element e);
@@ -125,26 +127,47 @@ public class ClassifyYQuestionsFromQid {
     private static ClassifyQ classifyq = new ClassifyQ();
     private static String title,body,categ;
     
+    
 
     private static String answer="";
     private static boolean webqaflag = false;
     
     
     public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            System.out.println("Usage: ClassifyYQuestionsFromQid <plaintext-list-of-qids> <out-file>");
+        if (args.length != 5) {
+            System.out.println("Usage: ClassifyYQuestionsFromQid ./data/1k-qids.txt ./data/unanswered-qs.txt ./data/answered-qs.txt ./data/qapattern.train 1000");
             return;
         }
         
-        BufferedWriter writer = getWriter(args[1]);        
+        // Train QA file
+        Patterns pat=new Patterns();
+        String QAfile=args[3];
+        int threshold=Integer.valueOf(args[4]);
+        pat.WordCounts(QAfile,threshold);
+		pat.TrainVectors(QAfile,pat.freqs_g);
+		pat.CalculateDFIDF();
+		
+        BufferedWriter unansweredwriter = getWriter(args[1]);      
+        BufferedWriter answeredwriter = getWriter(args[2]);   
         String[] qids = getQids(args[0]);
         int qidcounter=0;
+        
+        String propertiesfile="data/LiveQA.properties";
+    	String maxtimestr=getParam("maxtime",propertiesfile);
+    	String searchengine=getParam("searchengine",propertiesfile);
+    	int maxtime=Integer.parseInt(maxtimestr);
+    	
+    	
+        
 
         for (String qid : qids) 
         {
+        	if ( qid == null )
+        		continue;
 
         	qidcounter++;
-        	System.out.println("qid-"+qidcounter+"\n");
+        	System.out.println("Getting data for QID " + qid+"  ,qid counter-"+qidcounter+"\n");
+        	
         	answer="";
         	webqaflag = false;
             for (Entry<String, String> kv : extractData(qid).entrySet()) {
@@ -156,22 +179,42 @@ public class ClassifyYQuestionsFromQid {
             		categ=kv.getValue();
             }
             
-            
+            long start =  System.currentTimeMillis();
+    		float elapsedTimeSec=0;
+    		
+            System.out.println("Title:"+title+"\nBody:"+body+"\n");
+        	
+            answer=classifyq.analyzeYQsnippet(title,body,categ,pat,maxtime,searchengine);
 
-            answer=classifyq.analyzeYQsnippet(title,body,categ);
+            long elapsedTimeMillis =  System.currentTimeMillis()- start;
+    		elapsedTimeSec = elapsedTimeMillis/1000F;
+            
             if ( answer != "")
             {
-            	System.out.println("Getting data for QID " + qid);
-            	writer.append(qid + ":");
-            	writer.newLine();
-            	writer.append("Title:"+title+"\n\n"+body+"\n\n");
-            	writer.append("Answer:"+answer+"\n-------\n");
-            	writer.flush();
+
+            	answeredwriter.append(qid + ":");
+            	answeredwriter.append("Title:"+title+"\n\n"+body+"\n");
+
+            	answeredwriter.append("Answer:"+answer+"\n-------\nTime Taken (seconds):"+elapsedTimeSec);
+            	System.out.println("Answer:"+answer+"\n-------\nTime Taken (seconds):"+elapsedTimeSec);
+            	answeredwriter.flush();
+            }
+            else
+            {
+            	unansweredwriter.append(qid + ":");
+            	unansweredwriter.append("Title:"+title+"\n\n"+body+"\nTime Taken (seconds):"+elapsedTimeSec);
+                unansweredwriter.flush();      
             }
             
         }
-        writer.flush();
-        writer.close();
+        
+        answeredwriter.flush();
+        answeredwriter.close();
+        
+        
+        unansweredwriter.flush();
+        unansweredwriter.close();
+        
     }
 
     private static String[] getQids(String inFile) throws IOException {
@@ -185,7 +228,27 @@ public class ClassifyYQuestionsFromQid {
         reader.close();
         return qids.toArray(new String[qids.size()]);
     }
+    
 
+    private static String getParam(String param,String inFile) throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(new File(inFile)));
+        String l = reader.readLine();
+        String[] varval;
+       
+        while (l != null) {
+        	varval=l.split("=");
+           if ( param.equals(varval[0]))
+           {
+        	   reader.close();
+        	   return varval[1];
+           }
+            l = reader.readLine();
+           }
+        reader.close();
+        
+        return "";
+    }
+    
     private static BufferedWriter getWriter(String fileLocation) throws FileNotFoundException {
         return new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(fileLocation))));
     }

@@ -1,8 +1,10 @@
 package org.trec.liveqa;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.File;
 import java.io.IOException;
@@ -38,6 +40,7 @@ import fi.iki.elonen.NanoHTTPD;
  * @author yuvalp@yahoo-inc.com
  * 
  */
+
 public class TrecLiveQaDFKIServer extends NanoHTTPD {
 
 	public static final String PARTICIPANT_ID = "dfkiqa";
@@ -67,15 +70,23 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
 	public static final String WORKING_TIME_ZONE_ID = "UTC";
 	public static final TimeZone WORKING_TIME_ZONE = TimeZone.getTimeZone(WORKING_TIME_ZONE_ID);
 	public static final Charset WORKING_CHARSET = StandardCharsets.UTF_8;
+	public static Patterns pat=new Patterns();
 
 	private static final Logger logger = Logger.getLogger(TrecLiveQaDemoServer.class.getName());
 
 	public TrecLiveQaDFKIServer(String hostname, int port) {
 		super(hostname, port);
+		
 	}
 
 	public TrecLiveQaDFKIServer(int port) {
 		super(port);
+		int threshold=1000;
+		String QAfile="./data/qatrain.corpus";
+		
+		pat.WordCounts(QAfile,threshold);
+		pat.TrainVectors(QAfile,pat.freqs_g);
+		pat.CalculateDFIDF();
 	}
 
 
@@ -178,6 +189,26 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
 
 	}
 
+	
+	 private static String getParam(String param,String inFile) throws IOException {
+	        BufferedReader reader = new BufferedReader(new FileReader(new File(inFile)));
+	        String l = reader.readLine();
+	        String[] varval;
+	       
+	        while (l != null) {
+	        	varval=l.split("=");
+	           if ( param.equals(varval[0]))
+	           {
+	        	   reader.close();
+	        	   return varval[1];
+	           }
+	            l = reader.readLine();
+	           }
+	        reader.close();
+	        
+	        return "";
+	    }
+	    
 	/**
 	 * Server's algorithmic payload.
 	 * 
@@ -187,40 +218,34 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
 	 * @param category (verbal description)
 	 * @return server's answer and a list of resources
 	 * @throws InterruptedException
+	 * @throws IOException 
 	 */
-	protected AnswerAndResources getAnswerAndResources(String qid, String title, String body, String category) 
-			throws InterruptedException {
-
-		AnswerAndResources answerAndResource = new AnswerAndResources("noAnswer", "noResource");
+	protected AnswerAndResources getAnswerAndResources(String qid, String title, String body, String category)
+			throws InterruptedException, IOException {
 		if (qid != null) {
-			try {
-
-
-				System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);   
-
-				StoringQs(qid,title,body,category);
-
-				ClassifyQ classifyq = new ClassifyQ();
-				String answer="";
-
-				try {
-					answer=classifyq.analyzeYQsnippet(title,body,category);
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-
-				if (answer != "") 
-					answerAndResource = new AnswerAndResources(answer, "resources");
-
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}  	
+			StoringQs(qid,title,body,category);
+			System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);    	
 		}
-		else
-			answerAndResource = new AnswerAndResources("clickedURL", "noResource");
-		return answerAndResource;
+		
+		
+		// Reading Properties  
+		String propertiesfile="./data/LiveQA.properties";
+	    String maxtimestr=getParam("maxtime",propertiesfile);
+    	String searchengine=getParam("searchengine",propertiesfile);
+    	int maxtime=Integer.parseInt(maxtimestr);
+		
+        ClassifyQ classifyq = new ClassifyQ();
+        String answer="";
+
+        try {
+                        answer=classifyq.analyzeYQsnippet(title,body,category,pat,maxtime,searchengine);
+                } catch (IOException e) {
+                        System.err.println("");
+                }
+
+        System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);
+        return new AnswerAndResources("DFKI - answer for "+title, ": "+answer+"\nresource1:\nresource2:");
+
 	}
 
 	protected static class AnswerAndResources {
