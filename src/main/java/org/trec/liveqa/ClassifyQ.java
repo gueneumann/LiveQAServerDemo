@@ -21,6 +21,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.xmlrpc.XmlRpcException;
+import org.trec.liveqa.ParseXMLString.UrlAnswerScore;
+import org.trec.liveqa.TrecLiveQaDFKIServer.AnswerAndResources;
 //import org.htmlparser.sax.XMLReader;
 
 public class ClassifyQ {
@@ -271,191 +273,167 @@ public class ClassifyQ {
     private static BufferedWriter getWriter(String fileLocation) throws FileNotFoundException {
         return new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(fileLocation),true)));
     }
+    
+    public String weedout(String keysentence)
+    {
+    	String newsentence="";
+    	
+    	
+    	newsentence=keysentence.replace("&#39;","").replace(":&lt;br", "").replace("&#xa;","").replace("&amp;","").replace("&[lg]t;","");
+    	
+    	   	
+    	return newsentence;
+    	
+    }
 	
-	public String analyzeYQsnippet(String title,String body,String categ,Patterns pat,int maxtime,String searchengine) throws  IOException
+	public AnswerAndResources analyzeYQsnippet(String title,String body,String categ,Patterns pat,int maxtime,String searchengine) throws  IOException
 	{
 		List<String> scope_body=new ArrayList<>();
 		List<String> scope_title=new ArrayList<>();
+		List<String> scope_categ=new ArrayList<>();
 		WebQAClient webqaclient = new WebQAClient();
+		
 		//Map<String,String> answerunit=new HashMap();
 		ParseXMLString parser = new ParseXMLString();
 		String answer = "",answerunit="";
+		UrlAnswerScore urlanswerscore=parser.new UrlAnswerScore("","",0.0);
+		
+		
 		
 		boolean webqaflag = false;
 		String webqalogfile = "data/WebQAClient.log";
 		String qalogfile = "data/QA.log";
-		String towebqafile = "data/TowebQA.txt";
-		String nottowebqafile = "data/notTowebQA.txt";
+		String webqaxml = "data/webqa.xml";
 		
 		
-		BufferedWriter replyxml = getWriter("webqa.xml");
+		BufferedWriter replyxml = getWriter(webqaxml);
 		BufferedWriter webqalog = getWriter(webqalogfile);
 		BufferedWriter qalog = getWriter(qalogfile);
-		BufferedWriter towebqa = getWriter(towebqafile);
-		BufferedWriter nottowebqa = getWriter(nottowebqafile);
 		
-		/* To be removed */
-		int webqacallcount=0;
 		
+		long start =  System.currentTimeMillis();
+		float elapsedTimeSec=0;
+
+		
+	
 		Date date = new Date();
 		SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy h:mm:ss a");
 		String formattedDate = sdf.format(date);
 		
         // Reduce the scope of the question to key context
 		
+		
 		if ( body != null)
 			scope_body=findoutkeyQ(body);
 		
 		if ( title != null)
 			scope_title=findoutkeyQ(title);
-
-		//System.out.println("Scope_body - " + scope_body.toString()+","+scope_body.size());
-		//System.out.println("Scope title - " + scope_title.toString());
-
+		
+		if ( categ!=null )
+			scope_categ=findoutkeyQ(categ);
 
 		
+		qalog.append(new Date()+"\ntitle:"+title + "\n"+ "body:"+body+"\ncateg:"+categ+"\n");
+		qalog.flush();
 		
-		for ( String keysentence:scope_title)
-		{
-			if ( analyzeQuery(keysentence) == 1 )
-			{
-				webqaflag=true;
-				webqalog.append("To WebQA(title): "+sdf.format(date)+":"+keysentence+"\n");
-				
-				
-				
-				try {
-				
-					webqacallcount++;
-					
-					
-					keysentence=keysentence.replaceAll("[^a-zA-Z0-9\\s]"," ");
-					
-					// Below line is to search in the giga search open source api
-					keysentence = keysentence + " "+searchengine;
-					
-					if ( keysentence.length()>150)
-					{
-					
-					String xmlstring=webqaclient.answers(keysentence.substring(0,150));
-				
-					replyxml.write(xmlstring);
-					replyxml.flush();
-					
-					parser.retrieve_from_urls(keysentence.substring(0,150),xmlstring,pat,maxtime);
-					
-					
-
-				
-					}
-					else if ( keysentence !="" )
-					{
-			        String xmlstring=webqaclient.answers(keysentence);
-					replyxml.write(xmlstring);
-					replyxml.flush();
-			        answerunit=parser.retrieve_from_urls(keysentence,xmlstring,pat,maxtime);
-
-							
-					}
-				} 
-				//catch (XmlRpcException e) {		
-				catch (Exception e) {
-					// TODO Auto-generated catch block
-					System.out.println("error in webqa - "+keysentence+"\n");
-					//e.printStackTrace();
-				}				
-				//webqalog.append("Predicted Answer:"+answerunit+"\n");
-				webqalog.flush();
-				answer=answer + answerunit;
-			}
+		
+		String keysentence="";
+		 for (String sent:scope_title)
+			 keysentence += sent;
+		 
+		 for (String sent:scope_body)
+			 keysentence += sent;
+		 
+		 String xmlstring="";
+		 
+		 //When title and body are null , check and add categ as keysentence
+		 if  ( keysentence.equals(""))
+		 {
+			 
+		       for ( String sent:scope_categ)
+				    keysentence += sent;
+		 }
+		 
+		 // if keysentence is "" then don't call others
+		 if ( keysentence.equals(""))
+		 {
+			 return ( new AnswerAndResources("","") );
+		 }
+		 
+		 keysentence=weedout(keysentence);
+		 
+		 keysentence = keysentence +" "+searchengine;
+		 //System.out.println("keyQ="+keysentence);
+		 
+		 
+		 // Try 1 to webqa
+		 try {
+			 //System.out.println("Calling webqaclient 1");
+			 xmlstring=webqaclient.answers(keysentence);
+			 //System.out.println("Called webqa client 1");
+			 
+		} catch (XmlRpcException e) {
+			// TODO Auto-generated catch block
+			webqalog.append("\n---------\nError in WebQA for:\n"+keysentence);
+			webqalog.append("\nException is"+e+"\n");
+			webqalog.flush();
+			e.printStackTrace();
 		}
-		
-
-		for ( String keysentence:scope_body)
-		{
-
-			if ( analyzeQuery(keysentence) == 1 )
-			{
-				webqaflag = true;
-				webqalog.append("To WebQA (body):"+sdf.format(date)+": "+keysentence+"\n");
-				//System.out.println("To WebQA 2:"+keysentence+"\n");
-				try {
-					
-					
-					webqacallcount++;
-					
-					
-					keysentence=keysentence.replaceAll("[^a-zA-Z0-9\\s]"," ");
-					
-					// Below line is to search in the giga search open source api
-					keysentence = keysentence + " "+searchengine;
-					
-					
-					if ( keysentence.length() > 150)
-					{
-					
-						String xmlstring=webqaclient.answers(keysentence.substring(0,150));
-						replyxml.write(xmlstring);
-						replyxml.flush();
-						answerunit=parser.retrieve_from_urls(keysentence.substring(0,150),xmlstring,pat,maxtime);
-
-					}
-					
-					else if ( keysentence !="" )
-					{
-
-						String xmlstring=webqaclient.answers(keysentence);
-						replyxml.write(xmlstring);
-						replyxml.flush();
-						answerunit=parser.retrieve_from_urls(keysentence,xmlstring,pat,maxtime);
-							
-					}
-					
-					}// catch (XmlRpcException e) {
-				   catch (Exception e) {	
-					   
+		 
+		 
+		 // Try 2 to webqa
+		 // if try 1 retrieves null result - space out all the "[.?]"  a little bit
+		 
+		 if ( xmlstring == "")
+		 {
+			  keysentence=keysentence.replaceAll("\\."," . ").replaceAll("\\?"," ? ");
+		      System.out.println("Trying again webqa call with :"+keysentence);
+		      try {
+					 xmlstring=webqaclient.answers(keysentence);
+				} catch (XmlRpcException e) {
 					// TODO Auto-generated catch block
-					
-					System.out.println("error in webqa - "+keysentence+"\n length of the question -"+keysentence.length()+"\n");
-					//e.printStackTrace();
-			
+					webqalog.append("\n---------\nError in WebQA for:\n"+keysentence);
+					webqalog.append("\nException is"+e+"\n");
+					e.printStackTrace();
 				}
-				//webqalog.append("Predicted Answer:"+answerunit+"\n");
-				webqalog.flush();
-				
-			}
-		}
+		    	
+		 }
+		 
+		 
+		 // Writing the xml down
+
+		 replyxml.write(xmlstring);
+		 replyxml.flush();
 		
-		/* 3 lines to be removed later*/
-		if ( webqaflag == true)
-		{
-			webqalog.append("----------------------\n");
-			towebqa.append("title:"+title+"\nscopetitle:"+scope_title + "\n"+ "body:"+body+"\nscope body:"+scope_body+"\n");
-		    towebqa.flush();
-		    towebqa.close();
-		    
+		 
+		 System.out.println("Calling retrieve_from_urls ..");
+		 // Retrieve the answer
+		 try {
+		  urlanswerscore=parser.retrieve_from_urls(keysentence,xmlstring,pat,maxtime);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			webqalog.append("\n---------\nError while retrieveing the answer : retrieve_from_urls\n");
+			webqalog.append("\nException is"+e+"\n");
+			webqalog.flush();
+			e.printStackTrace();
 		}
-		else
-			nottowebqa.append("title:"+title+"\nbody:"+body+"\n");
-		    nottowebqa.flush();
-		    nottowebqa.close();
-			
-			
-		webqalog.flush();
-		
-		if ( webqaflag == true && answer.matches(".*[a-zA-Z0-9].*"))
-		{
-			qalog.append("title-scope:"+scope_title + "\n"+ "body-scope:"+scope_body+"\n");
-			qalog.append("Answer :" + answer + "\n\n");
-			qalog.flush();
-		}
+
+		 long elapsedTimeMillis =  System.currentTimeMillis()- start;
+		 elapsedTimeSec = elapsedTimeMillis/1000F;
+
+		qalog.append("Answer :" + urlanswerscore.answer + "\n");
+		qalog.append("Resource :" + urlanswerscore.url + "\n");
+		qalog.append("Score :" + urlanswerscore.score + "\n");
+		qalog.append(new Date()+" -Time taken:"+elapsedTimeSec+"\n\n");
+		qalog.flush();
+	
 		
 		webqalog.flush();
 		webqalog.close();
 		qalog.flush();
 		qalog.close();
 		replyxml.close();
-		return answer;
+		return (new AnswerAndResources(urlanswerscore.answer,urlanswerscore.url));
 	}
 
 }

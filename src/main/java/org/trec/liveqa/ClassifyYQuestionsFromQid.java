@@ -30,6 +30,8 @@ import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.trec.liveqa.ParseXMLString.UrlAnswerScore;
+import org.trec.liveqa.TrecLiveQaDFKIServer.AnswerAndResources;
 
 /**
  * Copyright 2015 Yahoo Inc.<br>
@@ -38,7 +40,7 @@ import org.jsoup.nodes.Element;
  * 
  * This class scrapes Yahoo Answers pages by a list of QIDs, obtaining certain properties.
  * 
- * @author yuvalp@yahoo-inc.com
+ * @author varanasi.stalin@gmail.com
  * 
  */
 
@@ -146,6 +148,7 @@ public class ClassifyYQuestionsFromQid {
         pat.WordCounts(QAfile,threshold);
 		pat.TrainVectors(QAfile,pat.freqs_g);
 		pat.CalculateDFIDF();
+		pat.FetchWord2Vecs("./data/Words2Vectors");
 		
         BufferedWriter unansweredwriter = getWriter(args[1]);      
         BufferedWriter answeredwriter = getWriter(args[2]);   
@@ -182,21 +185,24 @@ public class ClassifyYQuestionsFromQid {
             long start =  System.currentTimeMillis();
     		float elapsedTimeSec=0;
     		
-            System.out.println("Title:"+title+"\nBody:"+body+"\n");
+    		
+    		AnswerAndResources answerandresources=null;
+            System.out.println("\nTitle:"+title+"\nBody:"+body+"\n");
         	
-            answer=classifyq.analyzeYQsnippet(title,body,categ,pat,maxtime,searchengine);
+            answerandresources=classifyq.analyzeYQsnippet(title,body,categ,pat,maxtime,searchengine);
 
             long elapsedTimeMillis =  System.currentTimeMillis()- start;
     		elapsedTimeSec = elapsedTimeMillis/1000F;
-            
-            if ( answer != "")
+      
+    		
+            if ( answerandresources.answer() != "")
             {
 
             	answeredwriter.append(qid + ":");
             	answeredwriter.append("Title:"+title+"\n\n"+body+"\n");
 
-            	answeredwriter.append("Answer:"+answer+"\n-------\nTime Taken (seconds):"+elapsedTimeSec);
-            	System.out.println("Answer:"+answer+"\n-------\nTime Taken (seconds):"+elapsedTimeSec);
+            	answeredwriter.append("Answer:"+answerandresources.answer()+"\n-------\nTime Taken (seconds):"+elapsedTimeSec+"\n");
+            	System.out.println("Answer:"+answerandresources.answer()+"\nResources:"+answerandresources.resources()+"\n-------\nTime Taken (seconds):"+elapsedTimeSec);
             	answeredwriter.flush();
             }
             else

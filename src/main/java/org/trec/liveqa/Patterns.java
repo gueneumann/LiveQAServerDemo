@@ -8,6 +8,8 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
@@ -44,6 +46,7 @@ public class Patterns {
 	public  Map<Integer,Integer> maxa_g=new HashMap();
 	public  Map<String,Integer> topwordcounts_g=new HashMap();
 	public  TreeMap<String,Integer> freqs_g = new TreeMap<String,Integer>();
+	public  Map<String,ArrayList<Double>> Word2Vecs_g=new HashMap<String,ArrayList<Double>>();
 	public  int top=200;
 
 	public  Map<String,Integer> Text2Vec(String Text, Map<String,Integer> freqwords) throws IOException {	 
@@ -52,7 +55,7 @@ public class Patterns {
 		Matcher reMatcher = re.matcher(Text);
 		String sentence="",trigram="",join;
 		Map<String,Integer> pcounts=new HashMap();
-		BufferedWriter simplecorpus=getWriter("./data/corpus.simplified");
+	//	BufferedWriter simplecorpus=getWriter("./data/corpus.simplified");
 
 
 
@@ -61,14 +64,19 @@ public class Patterns {
 			join="<s>";
 			for (String word:sentence.replaceAll("[^a-zA-Z ]", "").toLowerCase().split("\\s+"))
 			{
+				
+				// The below lines are used to remove very rare trigrams
 				if (freqwords.containsKey(word))
 					join += " "+word; 
 				else
 					join += " xxxx";
+					
+				//This include rare trigrams,but subsequently we use skip grams so doesn't matter.
+				//join += " "+word;
 			}
 
-			simplecorpus.append(join.replaceAll("^<s>", "")+".");
-			simplecorpus.flush();
+            //      simplecorpus.append(join.replaceAll("^<s>", "")+".");
+			//		simplecorpus.flush();
 
 			join += " <\\s>";
 
@@ -84,28 +92,67 @@ public class Patterns {
 			{
 
 				trigram=gram3.next();
-				if (! ( trigram.matches(".*xxxx xxxx.*") || trigram.matches("xxxx .* xxxx") ))
-				{
-
-					// System.out.println("trigram - "+trigram);
-
-					if ( pcounts.containsKey(trigram))
+				
+				/*
+				 * if (! ( trigram.matches(".*xxxx xxxx.*") || trigram.matches("xxxx .* xxxx") ))
 					{
-						pcounts.put(trigram, pcounts.get(trigram)+1);
+
+						// System.out.println("trigram - "+trigram);
+
+
+
+						if ( pcounts.containsKey(trigram))
+						{
+							pcounts.put(trigram, pcounts.get(trigram)+1);
+						}
+						else
+						{
+							pcounts.put(trigram, 1);
+
+						}
 					}
-					else
-					{
-						pcounts.put(trigram, 1);
 
+				 */
+				
+				String[] newtrigrams=trigram.split("\\s+");
+				
+				for(int i=0;i<=newtrigrams.length;i++)
+				{
+					
+					String[] temptrigrams=newtrigrams;
+					
+					if (i!=newtrigrams.length)
+					{
+						if ( newtrigrams[i] == "xxxx")
+							continue;
+						temptrigrams[i]="xxxx";
+					}
+					
+					String newtrigram=temptrigrams[0]+" "+temptrigrams[1]+" "+temptrigrams[2];
+
+					if (! ( newtrigram.matches(".*xxxx xxxx.*") || newtrigram.matches("xxxx .* xxxx") ))
+					{
+
+						// System.out.println("newtrigram - "+newtrigram);
+						if ( pcounts.containsKey(newtrigram))
+						{
+							pcounts.put(newtrigram, pcounts.get(newtrigram)+1);
+						}
+						else
+						{
+							pcounts.put(newtrigram, 1);
+
+						}
 					}
 				}
 			}
+			
 
 
 		}
-		simplecorpus.append("\n");
-		simplecorpus.flush();
-		simplecorpus.close();
+		//simplecorpus.append("\n");
+		//simplecorpus.flush();
+		//simplecorpus.close();
 		return pcounts;
 	}
 
@@ -303,7 +350,7 @@ public class Patterns {
 						}
 						catch(Exception e)
 						{
-							System.out.println("qid -"+qid+":"+Questions_g.get(qid));
+							// Exception hitting here sometimes .System.out.println("qid -"+qid+":"+Questions_g.get(qid));
 
 						}
 						if (! cosinediff.containsKey(qid))	
@@ -366,6 +413,10 @@ public class Patterns {
 			topwordcounts_g.put("<s>", 1);
 			topwordcounts_g.put("<\\s>", 1);
 
+			//The below line is to skip those Avectors which are not present for a qid.
+			if ( ! Avectors_g.containsKey(qid))
+		     	continue;
+			
 			for (String ngram:Avectors_g.get(qid).keySet())
 			{
 				//System.out.println("ngram - "+ngram+"idfa_g -"+idfa_g.get(ngram));
@@ -387,7 +438,7 @@ public class Patterns {
 						catch(Exception e)
 						{
 
-							System.out.println("Something wrong :pos2.");
+						// Open this later to see the exception	System.out.println("Something wrong :pos2.");
 
 						}
 					}
@@ -437,30 +488,179 @@ public class Patterns {
 	}
 
     // To get score for the answer , given a question.
-	public double AnswerScore(String A,Map<String,Integer> freqs,Map<String,Double> answerpatterns_tfidfs) throws IOException
+	public synchronized double AnswerScore(String Q,String A,Map<String,Integer> freqs,Map<String,Double> answerpatterns_tfidfs) throws IOException
 	{
-
+		
+	//	BufferedWriter analysis=getWriter("./data/Analysis");
 		Map<String,Integer> agrams = Text2Vec(A,freqs);
 
 
-		double similarity=0.0;
+		double semanticsimilarity=0.0;
+		double patternsimilarity=0.0;
 
 		for (String ngram:agrams.keySet())
 		{
 			try
 			{
-				similarity += agrams.get(ngram)*idfa_g.get(ngram)*answerpatterns_tfidfs.get(ngram);
+				patternsimilarity += agrams.get(ngram)*idfa_g.get(ngram)*answerpatterns_tfidfs.get(ngram);
+			
 			}
 			catch(Exception e)
 			{
 				//System.out.println("something wrong -\ncheck: idfa_g size=" + idfa_g.size()+"\ncheck:answerpatterns_tfidfs size="+answerpatterns_tfidfs.size()+"\ncheck: agrams size="+agrams.size());
+				
 			}
 		}
-
-		return similarity;	
+		
+		patternsimilarity = patternsimilarity / A.split("\\s+").length; // Normalize with the length of the sentence.
+	
+		
+		
+	
+		
+		semanticsimilarity= CosineSimilarity(SimplePhraseVector(Q),SimplePhraseVector(A));
+		
+	
+		if ( semanticsimilarity > 0.8 )
+			semanticsimilarity=0.8;
+		
+		//analysis.append(A+"|"+semanticsimilarity+"|"+patternsimilarity+"\n");
+		//analysis.flush();
+		//analysis.close();
+		return (semanticsimilarity*patternsimilarity);	
+		//return patternsimilarity;
+		
 
 	}
 
+	
+	
+
+
+	private double CosineSimilarity(ArrayList<Double> a ,ArrayList<Double> b)
+	{
+		
+		
+		double sim=0.0;
+		
+		
+		for (int i=0;i<a.size();i++)
+			sim += a.get(i)*b.get(i);
+		
+		return sim;
+		
+	}
+	
+	private synchronized ArrayList<Double> SimplePhraseVector(String Text)
+	{
+		
+
+		ArrayList<Double> PhraseVector=new ArrayList<Double>();
+		
+
+		for(int i=0;i<Word2Vecs_g.get("zerovector").size();i++)
+			PhraseVector.add(0.0);
+		
+		ArrayList<Double> WordVector=new ArrayList<Double>();
+
+		
+		String string="";
+		String stringoov="";
+		for (String word:Text.replaceAll("([?])"," $1 ").split("\\s+") )
+		{		
+			if ( Word2Vecs_g.containsKey(word) )
+			{
+				WordVector=Word2Vecs_g.get(word);
+	
+				double sumw=0.0,sump=0.0;
+				for(int i=0;i<WordVector.size();i++)
+				{
+					double pval=PhraseVector.get(i);
+					double wval=WordVector.get(i);
+					sumw += Math.pow(wval,2);
+					sump += Math.pow(pval,2);
+					PhraseVector.set(i,pval+wval);
+				}
+				
+			//	System.out.println("word-"+word+" value:"+sumw);
+			//System.out.println("phrase-"+word+" value:"+sump);
+				
+				string += word+" ";
+			}
+			else
+			{
+				//System.out.println(word+" is out of vocab");
+				stringoov += word+" ";
+			}
+		}
+		
+		double length=0.0;
+		
+		for (int i=0;i<PhraseVector.size();i++)
+			length += Math.pow(PhraseVector.get(i),2);
+		length = Math.sqrt(length);
+		
+		//System.out.println("Length="+length+"| words="+string+"|oovwords="+stringoov+"| for Text"+Text);
+			
+	    for(int i=0;i<PhraseVector.size();i++)
+	    	PhraseVector.set(i,PhraseVector.get(i)/length);
+	   
+	  
+	    /*double mod=0.0;
+	    for (int i=0;i<PhraseVector.size();i++)
+			mod += Math.pow(PhraseVector.get(i),2);
+	    
+	    System.out.println("Modulus="+mod+" for -"+Text);*/
+		
+	//    System.out.println("LastPhraseVector="+PhraseVector+"\n"+Word2Vecs_g.get("zerovector"));
+		
+	    return PhraseVector;
+	}
+	
+	
+	public HashMap<String,ArrayList<Double>>  FetchWord2Vecs(String filename)
+	{
+		String line=""; 
+		HashMap<String,ArrayList<Double>> Word2Vecs=new HashMap<String,ArrayList<Double>>();
+		try {
+			BufferedReader reader = new BufferedReader(new FileReader(new File(filename)));
+		
+			line=reader.readLine();
+			int count=1,i=1;
+			ArrayList<Double> vec=new ArrayList<Double>();
+			
+			while(line!=null)
+			{
+				String[] wordvecs=line.split("\\s+");
+				vec=new ArrayList<Double>();
+				
+				for (i=1;i<wordvecs.length;i++)
+					vec.add( Double.parseDouble(wordvecs[i]));
+				
+				Word2Vecs.put(wordvecs[0], vec); 
+				count++;
+				if ( count%1000 == 0)
+					System.out.println(new Date()+" Count ="+count+" Word = " + wordvecs[0]);
+				
+				line=reader.readLine();
+			}
+			
+			// Create a 0 vector
+			vec=new ArrayList<Double>();
+			for (int x=1;x<i;x++)
+				vec.add(0.0);
+			Word2Vecs.put("zerovector", vec);
+		
+		}
+		catch(IOException ie)
+		{
+		   System.out.println("Cannot open file" + filename);
+		}
+		Word2Vecs_g=Word2Vecs;
+		return Word2Vecs;
+	}
+	
+		
     // Train ngram vectors 
 	public  void TrainVectors(String filename, Map<String,Integer> freqwords)
 	{
@@ -582,13 +782,13 @@ public class Patterns {
 			}
 
 
-			System.out.println("Total no. of trigrams = "+Avectors.entrySet().size()+" "+Qvectors.entrySet().size());
+			System.out.println("Total no. of trigrams = "+ngramavectors.entrySet().size()+" "+ngramqvectors.entrySet().size());
 		//	System.out.println("Questions size -"+Questions_g.size()+" Answers size -"+Answers_g.size());
 		}
 
 		catch(IOException ioe)
 		{
-			System.out.println("IOException .. yo!");
+			System.out.println("IOException on file:"+filename);
 		}
 
 
@@ -612,23 +812,25 @@ public class Patterns {
 	}
 
 	// Main function
-	public  void main(String[] args) throws Exception {
-		if (args.length != 2) {
-			System.out.println("Usage: TrainPatterns.java <QuestionandAnswersFile> <Frequency threshold>");
+	public  static void main(String[] args) throws Exception {
+		if (args.length != 3) {
+			System.out.println("Usage: TrainPatterns.java <QuestionandAnswersFile> <Word2VecFile> <Frequency threshold>");
 			return;
 		}
 
 		Patterns pat=new Patterns();
 		System.out.println(new Date().toString());
 		String QAfile=args[0];
-		int threshold=Integer.valueOf(args[1]);
+		String Word2Vecfile=args[1];
+		int threshold=Integer.valueOf(args[2]);
 		pat.WordCounts(QAfile,threshold);
-		pat.TrainVectors(QAfile,freqs_g);
+		pat.TrainVectors(QAfile,pat.freqs_g);
+		pat.FetchWord2Vecs(Word2Vecfile);
 		pat.CalculateDFIDF();
 
 		//ProbableAnswer
 		Scanner input=new Scanner(System.in);
-		String line="";
+		String line="",Question;
 		System.out.println(new Date().toString());
 
 		while(true)
@@ -642,23 +844,37 @@ public class Patterns {
 				if ( s.equals("#"))
 					break;
 				line += s;
-				System.out.println(line);
+				
 			}
-
+			
 			Map<String,Double> answerpatterns_tfidfs=pat.ProbableAnswerPatterns(line,pat.freqs_g);
-
+			Question=line;
+			System.out.println("Question:"+Question);
+            Iterator it= answerpatterns_tfidfs.keySet().iterator();
+            while(it.hasNext())
+            {
+            	System.out.println(it.next());
+            	Scanner sn=new Scanner(System.in);
+            	if ( sn.nextLine().equals("#"))
+            		break;
+            }
+			
 			line="";
 			while ( true )
 			{
 				System.out.println("Enter Answer text:");
 				String s= input.nextLine();
 				if ( s.equals("#"))
+				{
+					System.out.println(s);
 					break;
-				line += s;
-				System.out.println(line);
+				}
+					line += s;
+				System.out.println(s);
 			}
-
-			System.out.println("Answer score is "+ pat.AnswerScore(line,pat.freqs_g,answerpatterns_tfidfs));
+			
+			System.out.println("Calling AnswerScore\n");
+			System.out.println("Answer score is "+ pat.AnswerScore(Question,line,pat.freqs_g,answerpatterns_tfidfs));
 
 		}
 
@@ -691,7 +907,12 @@ class NGramIterator implements Iterator<String> {
 
 	public NGramIterator(int n, String str) {
 		this.n = n;
-		words = str.split(" ");
+		
+		//The below line splits by every space
+		//words = str.split(" ");
+		
+		words = str.split("\\s+");
+
 	}
 
 	public boolean hasNext() {
@@ -752,3 +973,4 @@ class ValueComparator implements Comparator<String> {
 		} // returning 0 would merge keys
 	}
 }
+	

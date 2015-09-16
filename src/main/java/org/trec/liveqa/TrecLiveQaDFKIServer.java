@@ -81,12 +81,15 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
 
 	public TrecLiveQaDFKIServer(int port) {
 		super(port);
-		int threshold=1000;
+		
+		// Do this or load the serializabile HashMap Values
+		int threshold=300;
 		String QAfile="./data/qatrain.corpus";
 		
 		pat.WordCounts(QAfile,threshold);
 		pat.TrainVectors(QAfile,pat.freqs_g);
 		pat.CalculateDFIDF();
+		pat.FetchWord2Vecs("./data/Words2Vectors");
 	}
 
 
@@ -227,6 +230,8 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
 			System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);    	
 		}
 		
+		AnswerAndResources answerandresources=new AnswerAndResources("","");
+		
 		
 		// Reading Properties  
 		String propertiesfile="./data/LiveQA.properties";
@@ -235,16 +240,21 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
     	int maxtime=Integer.parseInt(maxtimestr);
 		
         ClassifyQ classifyq = new ClassifyQ();
-        String answer="";
+        String answer="",resources="";
 
         try {
-                        answer=classifyq.analyzeYQsnippet(title,body,category,pat,maxtime,searchengine);
+                        answerandresources=classifyq.analyzeYQsnippet(title,body,category,pat,maxtime,searchengine);
                 } catch (IOException e) {
-                        System.err.println("");
+                    e.printStackTrace();
+                	System.err.println("analyzeYQsnippet didn't return answerandresources ");
                 }
 
+        answer=answerandresources.answer();
+        resources=answerandresources.resources();
         System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);
-        return new AnswerAndResources("DFKI - answer for "+title, ": "+answer+"\nresource1:\nresource2:");
+  
+        return new AnswerAndResources("DFKI - answer for "+title+":"+answer,resources);
+//      return new AnswerAndResources("DFKI - answer for "+title+": "+answer,"resources:"+resources);
 
 	}
 
@@ -269,10 +279,6 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
 	}
 
 	// ---------------------------------------------
-
-
-
-
 	public static void main(String[] args) throws IOException {
 		TrecLiveQaDFKIServer server =
 				// IP address and port

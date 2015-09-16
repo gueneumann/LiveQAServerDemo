@@ -2,6 +2,8 @@ package org.trec.liveqa;
 
 import javax.xml.parsers.*;
 import org.xml.sax.InputSource;
+import org.jdom2.JDOMException;
+import org.jdom2.input.SAXBuilder;
 import org.jsoup.Jsoup;
 import org.w3c.dom.*;
 import java.io.*;
@@ -28,7 +30,9 @@ public class ParseXMLString  {
 		Map<String, String> res = new HashMap<>();
 		String urlcontent="";
 		ArrayList<String> urltextcontent=new ArrayList<String>();
-
+        boolean readable=true;
+        String urloriginal=urlstring;
+        
 		/*
 		if ( ! urlstring.contains("http"))
 		{
@@ -42,13 +46,48 @@ public class ParseXMLString  {
 		long start =  System.currentTimeMillis();
 		float elapsedTimeSec=0;
         String getprotocol="";
+        String getFile="";
+        String getHost="";
+        String getAuthority="";
+		String getPath="";
+		String getQuery="";
+		String getUserInfo="";
 
 		try
 		{	
 
 
+		
+			//Add http if its not present.
+			if ( ! urlstring.matches("^http.*"))
+			{
+
+            /*	if ( ! urlstring.matches("^www.*") )
+				{
+					urlstring ="www." + urlstring;
+					System.out.println("Added www.:"+urlstring);
+				}
+             */
+				urlstring="http://"+urlstring;
+				
+			}
+
+
+		
+			
 			URL url = new URL(urlstring);
+			
 			getprotocol=url.getProtocol();
+			getFile=url.getFile();
+			getHost=url.getHost();
+			getAuthority=url.getAuthority();
+			getPath=url.getPath();
+			getQuery=url.getQuery();
+			getUserInfo=url.getUserInfo();
+		
+		   //System.out.println( urlstring+"\n----1----\n"+getprotocol+"\n"+getFile+"\n"+getHost+"\n"+getAuthority+"\n"+getPath+"\n"+getQuery+"\n"+getUserInfo+"\n------");
+				
+			  
 			URLConnection con = url.openConnection();  
 			InputStream is =con.getInputStream();
 			BufferedReader br = new BufferedReader(new InputStreamReader(is));
@@ -61,18 +100,36 @@ public class ParseXMLString  {
 
 		}
 
-		catch(Exception ie)
+		catch(IOException ie)
 		{
 			//System.out.println("With Protocol:"+getprotocol+" .Excpetion while connecting to :"+urlstring);
 			//ie.printStackTrace();
+			
+			System.out.println("Cannot retrieve 1:"+urlstring);
 
 			// Try with https
 			try
 			{	
-				urlstring=urlstring.replaceAll("^http://", "https://");
+				if ( ! urloriginal.matches("^http.*"))
+						urlstring="https://"+urloriginal;
+				else
+					urlstring.replace("^http://", "https://");
+				     
+
 				
 				//System.out.println("changed url -" + urlstring);   open this line later
 				URL url = new URL(urlstring);
+				getprotocol=url.getProtocol();
+				getFile=url.getFile();
+				getHost=url.getHost();
+				getAuthority=url.getAuthority();
+				getPath=url.getPath();
+				getQuery=url.getQuery();
+				getUserInfo=url.getUserInfo();
+			
+			    //System.out.println( urloriginal+"\n"+urlstring+"\n-----2-----\n"+getprotocol+"\n"+getFile+"\n"+getHost+"\n"+getAuthority+"\n"+getPath+"\n"+getQuery+"\n"+getUserInfo+"\n------");
+			
+				
 				URLConnection con = url.openConnection();  
 				InputStream is =con.getInputStream();
 				BufferedReader br = new BufferedReader(new InputStreamReader(is));
@@ -84,10 +141,12 @@ public class ParseXMLString  {
 				}
 			}
 
-			catch(Exception ie2)
+			catch(IOException ie2)
 			{
 				//ie2.printStackTrace();
-
+                readable=false;
+                
+                System.out.println("Cannot retrieve 2:"+urlstring);
 			}
 
 		}
@@ -120,10 +179,13 @@ public class ParseXMLString  {
 		//for(String s:urltextcontent)
 		//    System.out.println(s);
 
-		elapsedTimeMillis =  System.currentTimeMillis()- start;
-		float elapsedTimeSec_2 = elapsedTimeMillis/1000F;
+		//elapsedTimeMillis =  System.currentTimeMillis()- start;
+		//float elapsedTimeSec_2 = elapsedTimeMillis/1000F;
 		//System.out.println("reading:"+elapsedTimeSec+",parsing:"+elapsedTimeSec_2+" (seconds) for reading "+urltextcontent.size()+" lines in " + urlstring);
 	
+		if ( readable)
+			System.out.println("Read url:"+urloriginal);
+
 
 		return urltextcontent;
 	}
@@ -192,13 +254,22 @@ public class ParseXMLString  {
 	}
 
 
-	public String retrieve_from_urls(String Question,String xmlRecords,Patterns pat,int maxtime) throws Exception
+	
+	
+	public UrlAnswerScore retrieve_from_urls(String Question,String xmlRecords,Patterns pat,int maxtime) throws Exception
 	{
 		//TreeMap <String,String> url_answers=new TreeMap<String,String>();
 		ArrayList<UrlAnswerScore> url_answers=new ArrayList<UrlAnswerScore>();
+		
+		// To retrieve top ten search engine results
 		url_answers=mineURLs(Question,retrieve_urls(xmlRecords),pat,maxtime);
+		
+		//To retrieve top ten webqa suggested results
+		//url_answers=mineURLs(Question,retrieve_semantic_urls(xmlRecords),pat,maxtime);
+		
 		String answer="";
-		String urls="";
+		UrlAnswerScore urlanswerscore = new UrlAnswerScore("","",0.0);
+		
 		int i=1;
 
 		//System.out.println("\nFINALLY:");
@@ -208,19 +279,64 @@ public class ParseXMLString  {
 
 
 			if ( i==1)
+			{
+				urlanswerscore=obj;
 				answer=obj.answer;
+			}
 			i++;
 
 		}
 
-	//	System.out.println("Question is -"+Question);
-	//	System.out.println("Answer is -" + answer);
 
-		return answer;
+		return urlanswerscore;
 	}
 
 
-
+	/**
+	 * @author Tyler Klement
+	 */
+	public ArrayList<String> retrieve_semantic_urls(String xmlRecords) {
+		ArrayList<String> urls = new ArrayList<String>();
+		try {
+			SAXBuilder builder = new SAXBuilder();
+			// qualified names are necessary since DOM, used in other areas, shares these names
+			org.jdom2.Document document = (org.jdom2.Document) builder.build(new StringReader(xmlRecords));
+			org.jdom2.Element rootNode = document.getRootElement();
+			org.jdom2.Element sentenceNode = rootNode.getChild("sentences");
+			List sentenceList = sentenceNode.getChildren("sentence");
+			org.jdom2.Element snippetsNode = rootNode.getChild("snippets");
+			List snippetsList = snippetsNode.getChildren("snippet");
+			
+			ArrayList<String> snippetUrls = new ArrayList<String>();
+			
+			for(int i = 0; i < snippetsList.size(); i++){
+				org.jdom2.Element snippetNode = (org.jdom2.Element) snippetsList.get(i);
+				String url = snippetNode.getChildText("url");
+				snippetUrls.add(url);
+			}
+			
+			//gets top 10 best snippets and adds their urls to the urls list, in order
+			int sentencesRetrieved = 0;
+			for(int i = sentenceList.size() - 1; i >= 0 && sentencesRetrieved < 10; i--){
+				org.jdom2.Element sentence = (org.jdom2.Element) sentenceList.get(i);
+				org.jdom2.Element sourcesNode = sentence.getChild("sources");
+				List sourceList = sourcesNode.getChildren("source");
+				
+				for(int j = 0; j < sourceList.size(); j++){
+					org.jdom2.Element sourceNode = (org.jdom2.Element) sourceList.get(j);
+					urls.add(snippetUrls.get(Integer.parseInt(sourceNode.getText())));
+				}
+				
+				sentencesRetrieved++;
+			}
+			
+		} catch (IOException | JDOMException e) {
+			e.printStackTrace();
+		}
+		
+		return urls;
+	}
+	
 
 	//@SuppressWarnings("deprecation")
 	public ArrayList<UrlAnswerScore> mineURLs(String Question,ArrayList<String> urls,Patterns pat,int maxtime) throws Exception 
@@ -242,11 +358,16 @@ public class ParseXMLString  {
 		for (String url: urls)
 		{
 
-			//textnscore=BestAnswerFromURL(Question,url,pat,answertfidfs);
-			// Create new thread for   Answer From this url
 
-			allbestans.add(new BestAnswerFromURL(Question,url,pat,answertfidfs));
-
+			// Creating new thread for Answer From this url
+			System.out.println("Creating new thread for url:"+url+" maxtime:"+maxtime);
+			BestAnswerFromURL thread=new BestAnswerFromURL(Question,url,pat,answertfidfs);
+			allbestans.add(thread);
+			//Delete below 3
+			//Scanner sn=new Scanner(System.in);
+			//if ( sn.nextLine() == "#" )
+				// break;
+            
 		}
 
 		// Wait for some time and take the best answers + kill the threads.
@@ -257,21 +378,18 @@ public class ParseXMLString  {
 		{
 			long elapsedTimeMillis =  System.currentTimeMillis()- start;
 			elapsedTimeSec = elapsedTimeMillis/1000F;
-			for(BestAnswerFromURL bestie:allbestans)
-			{
-
-				//Put the below lines here to ignore other pages which are not checked completely for answers
-				//url_answers.put(bestie.url, bestie.bestanswer);
-				//url_scores.put(bestie.url,bestie.score);
-
-
-				url_answers.put(bestie.url, bestie.bestanswer);
-				url_scores.put(bestie.url,bestie.score);
-
-			}
+			
 
 		}
 
+		for(BestAnswerFromURL bestie:allbestans)
+		{
+
+
+			url_answers.put(bestie.url, bestie.bestanswer);
+			url_scores.put(bestie.url,bestie.score);
+
+		}
 
 		for(BestAnswerFromURL bestie:allbestans)
 		{
@@ -326,9 +444,11 @@ public class ParseXMLString  {
 	public ArrayList<String> retrieve_urls(String xmlRecords) {
 
 
+		//System.out.println(xmlRecords);
 		xmlRecords=xmlRecords.replaceAll(">\\s*\n\\s*<", "><");
 		ArrayList<String> urls = new ArrayList<String>();
 		String text="";
+		
 
 		try {
 			DocumentBuilderFactory dbf =
@@ -342,18 +462,20 @@ public class ParseXMLString  {
 			// NodeList nodes = doc.getElementsByTagName("qa-object");
 			// Element element = (Element) nodes.item(0);
 			//NodeList urlList = element.getElementsByTagName("url");
+			
 			NodeList urlList = doc.getElementsByTagName("url");
 
 
-			for (int i = 0; i < urlList.getLength(); i++) {
-
+		//	for (int i = 0; i < urlList.getLength() ; i++) {
+			for (int i = 0; i < urlList.getLength() && i < 10 ; i++) {
 				text=urlList.item(i).getTextContent().replaceAll("\"","");
+				System.out.println("Adding url "+i+":"+text);
 				urls.add(text);
 
 			}
 		}
 		catch (Exception e) {
-			//e.printStackTrace();
+			e.printStackTrace();
 		}
 
 
@@ -361,6 +483,10 @@ public class ParseXMLString  {
 	}
 
 
+	
+	
+	
+	
 	public String retrieve_bestsnip(String Question,String xmlRecords,Patterns pat) throws IOException {
 
 
@@ -390,7 +516,7 @@ public class ParseXMLString  {
 			for (int i = 0; i < snippets.getLength(); i++) {
 
 				text=snippets.item(i).getFirstChild().getTextContent();
-				answerscore=pat.AnswerScore(text, pat.freqs_g, answertfidfs);
+				answerscore=pat.AnswerScore(Question,text, pat.freqs_g, answertfidfs);
 
 				if (  answerscore <= max )
 				{
@@ -526,6 +652,7 @@ public class ParseXMLString  {
 		int threshold=300; // hard coded threshold 
 		pat.WordCounts(QAfile,threshold);
 		pat.TrainVectors(QAfile,pat.freqs_g);
+        pat.FetchWord2Vecs("./data/Word2Vectors");
 		pat.CalculateDFIDF();
 
 		
@@ -549,12 +676,13 @@ public class ParseXMLString  {
 		reader.close();
 
 		System.out.println(new Date()+"Retrievingurls for Question -"+Question);
-		Answer=parser.retrieve_from_urls(Question,filecontent,pat,30);
-		System.out.println(Answer);
+		UrlAnswerScore urlanswerscore = parser.retrieve_from_urls(Question,filecontent,pat,30);
+		//Answer=parser.retrieve_bestsnip(Question,filecontent,pat);
+		System.out.println(urlanswerscore.answer);
 		
 	}
 
-	private class UrlAnswerScore
+	public class UrlAnswerScore
 	{
 		public String url;
 		public String answer;
@@ -596,6 +724,8 @@ public class ParseXMLString  {
 			ArrayList<String> Lines=new ArrayList<String>();;
 
 			Lines = textFromUrl(url);
+			
+			
 			//System.out.println("Lines in url-"+url+" = "+Lines.size());
 
 			ArrayList<Double> AnswerScores= new ArrayList<Double>();
@@ -603,12 +733,14 @@ public class ParseXMLString  {
 			for (String line:Lines)
 			{
 
+				line=line.replaceAll("[^a-zA-Z \\.]", "").toLowerCase();
 				double answerscore=0.0;
 
 				try {
-					//Debug line
-					//System.out.println("Score for -" + line);
-					answerscore = pat.AnswerScore(line, pat.freqs_g, answertfidfs);
+				
+					//lowercase the Answer line from URLs
+					line=line.toLowerCase();
+					answerscore = pat.AnswerScore(Question,line, pat.freqs_g, answertfidfs);
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					System.out.println("IOException at pat.AnswerScore");
@@ -625,7 +757,7 @@ public class ParseXMLString  {
 			// Initialize local bestanswer and score values
 
 			Integer islandpos=0;
-			int maxlines=4;
+			int maxlines=3;   // Plays key role
 
 
 			Map<Integer,Double> bestisl=bestScoreIsland(AnswerScores,maxlines);
@@ -636,8 +768,6 @@ public class ParseXMLString  {
 				score=obj.getValue();
 			}
 
-
-
 			for(int j=islandpos;j<islandpos+maxlines;j++)
 			{
 				try{
@@ -645,7 +775,7 @@ public class ParseXMLString  {
 				}
 				catch(Exception e)
 				{
-					
+					//System.out.println("Lines.size="+Lines.size()+"\n j="+j+"maxlines -"+maxlines);
 				}
 			}
 	 //  System.out.println(new Date()+"Thread ending..\nURL :"+url+"\nAnswer:"+bestanswer+"\nScore:"+score);
