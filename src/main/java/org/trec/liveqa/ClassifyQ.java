@@ -386,7 +386,8 @@ public class ClassifyQ {
 		 
 		 if ( xmlstring == "")
 		 {
-			  keysentence=keysentence.replaceAll("\\."," . ").replaceAll("\\?"," ? ");
+			  //keysentence=keysentence.replaceAll("\\."," . ").replaceAll("\\?"," ? ");
+			  keysentence=keysentence.replaceAll("\\.",". ").replaceAll("\\?","? ");
 		      System.out.println("Trying again webqa call with :"+keysentence);
 		      try {
 					 xmlstring=webqaclient.answers(keysentence);
@@ -407,6 +408,7 @@ public class ClassifyQ {
 		
 		 
 		 System.out.println("Calling retrieve_from_urls ..");
+		 
 		 // Retrieve the answer
 		 try {
 		  urlanswerscore=parser.retrieve_from_urls(keysentence,xmlstring,pat,maxtime);
@@ -435,5 +437,6 @@ public class ClassifyQ {
 		replyxml.close();
 		return (new AnswerAndResources(urlanswerscore.answer,urlanswerscore.url));
 	}
+	
 
 }
