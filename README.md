@@ -1,9 +1,9 @@
-# LiveQAServerDemo
-Version 1.0.0, February 15, 2015<br><br>
+# LiveQAServerDFKIServer2016
+Version 1.0.0, April 5, 2016<br><br>
 
 Entry point: org.trec.liveqa.TrecLiveQaDemoServer .<br>
-To implement your own server, extending this class and overriding its getAnswerAndResources() method should suffice.<br>
-For comments and questions regarding code and implementation: yuvalp@yahoo-inc.com<br><br>
+Skeleton Server taken from : https://github.com/yuvalpinter/LiveQAServerDemo 
+Implementation of DFKI server, by extending the class and overriding getAnswerAndResources() method .<br>
 
 3rd party open source code included in this project: NanoHTTPD (BSD license).<br>
 Code licensed under the MIT license. See LICENSE file for terms.
