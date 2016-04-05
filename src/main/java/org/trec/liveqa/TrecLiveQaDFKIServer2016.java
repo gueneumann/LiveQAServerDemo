@@ -327,11 +327,15 @@ public class TrecLiveQaDFKIServer2016 extends NanoHTTPD {
     // ---------------------------------------------
 
     public static void main(String[] args) throws IOException {
-        TrecLiveQaDemoServer server =
-                        new TrecLiveQaDemoServer(args.length == 0 ? DEFAULT_PORT : Integer.parseInt(args[0]));
-        server.start();
-        System.in.read();
-        server.stop();
+    	TrecLiveQaDFKIServer2016 server =
+				// IP address and port
+				// "localhost" or "134.96.187.212"
+				// talk to it via: http://localhost:11000
+				new TrecLiveQaDFKIServer2016(11000);
+		server.start();
+		System.out.println(server.getListeningPort());
+		System.in.read();
+		server.stop();
     }
 
 }

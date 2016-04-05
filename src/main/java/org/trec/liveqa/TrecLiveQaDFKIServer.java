@@ -76,16 +76,16 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
 
 	public TrecLiveQaDFKIServer(String hostname, int port) {
 		super(hostname, port);
-		
+
 	}
 
 	public TrecLiveQaDFKIServer(int port) {
 		super(port);
-		
+
 		// Do this or load the serializabile HashMap Values
 		int threshold=300;
 		String QAfile="./data/qatrain.corpus";
-		
+
 		pat.WordCounts(QAfile,threshold);
 		pat.TrainVectors(QAfile,pat.freqs_g);
 		pat.CalculateDFIDF();
@@ -192,26 +192,26 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
 
 	}
 
-	
-	 private static String getParam(String param,String inFile) throws IOException {
-	        BufferedReader reader = new BufferedReader(new FileReader(new File(inFile)));
-	        String l = reader.readLine();
-	        String[] varval;
-	       
-	        while (l != null) {
-	        	varval=l.split("=");
-	           if ( param.equals(varval[0]))
-	           {
-	        	   reader.close();
-	        	   return varval[1];
-	           }
-	            l = reader.readLine();
-	           }
-	        reader.close();
-	        
-	        return "";
-	    }
-	    
+
+	private static String getParam(String param,String inFile) throws IOException {
+		BufferedReader reader = new BufferedReader(new FileReader(new File(inFile)));
+		String l = reader.readLine();
+		String[] varval;
+
+		while (l != null) {
+			varval=l.split("=");
+			if ( param.equals(varval[0]))
+			{
+				reader.close();
+				return varval[1];
+			}
+			l = reader.readLine();
+		}
+		reader.close();
+
+		return "";
+	}
+
 	/**
 	 * Server's algorithmic payload.
 	 * 
@@ -229,32 +229,32 @@ public class TrecLiveQaDFKIServer extends NanoHTTPD {
 			StoringQs(qid,title,body,category);
 			System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);    	
 		}
-		
+
 		AnswerAndResources answerandresources=new AnswerAndResources("","");
-		
-		
+
+
 		// Reading Properties  
 		String propertiesfile="./data/LiveQA.properties";
-	    String maxtimestr=getParam("maxtime",propertiesfile);
-    	String searchengine=getParam("searchengine",propertiesfile);
-    	int maxtime=Integer.parseInt(maxtimestr);
-		
-        ClassifyQ classifyq = new ClassifyQ();
-        String answer="",resources="";
+		String maxtimestr=getParam("maxtime",propertiesfile);
+		String searchengine=getParam("searchengine",propertiesfile);
+		int maxtime=Integer.parseInt(maxtimestr);
 
-        try {
-                        answerandresources=classifyq.analyzeYQsnippet(title,body,category,pat,maxtime,searchengine);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                	System.err.println("analyzeYQsnippet didn't return answerandresources ");
-                }
+		ClassifyQ classifyq = new ClassifyQ();
+		String answer="",resources="";
 
-        answer=answerandresources.answer();
-        resources=answerandresources.resources();
-        System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);
-  
-        return new AnswerAndResources("DFKI - answer for "+title+":"+answer,resources);
-//      return new AnswerAndResources("DFKI - answer for "+title+": "+answer,"resources:"+resources);
+//		try {
+//			answerandresources=classifyq.analyzeYQsnippet(title,body,category,pat,maxtime,searchengine);
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//			System.err.println("analyzeYQsnippet didn't return answerandresources ");
+//		}
+
+		answer=answerandresources.answer();
+		resources=answerandresources.resources();
+		System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);
+
+		return new AnswerAndResources("DFKI - answer for "+title+":"+answer,resources);
+		//      return new AnswerAndResources("DFKI - answer for "+title+": "+answer,"resources:"+resources);
 
 	}
 
