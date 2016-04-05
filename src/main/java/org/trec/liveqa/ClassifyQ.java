@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 
 import org.apache.xmlrpc.XmlRpcException;
 import org.trec.liveqa.ParseXMLString.UrlAnswerScore;
+import org.trec.liveqa.TrecLiveQaDFKIServer2016.AnswerAndResourcesAndSummaries;
 import org.trec.liveqa.TrecLiveQaDFKIServer.AnswerAndResources;
 //import org.htmlparser.sax.XMLReader;
 
@@ -286,7 +287,7 @@ public class ClassifyQ {
     	
     }
 	
-	public AnswerAndResources analyzeYQsnippet(String title,String body,String categ,Patterns pat,int maxtime,String searchengine) throws  IOException
+	public AnswerAndResourcesAndSummaries analyzeYQsnippet(String title,String body,String categ,Patterns pat,int maxtime,String searchengine) throws  IOException
 	{
 		List<String> scope_body=new ArrayList<>();
 		List<String> scope_title=new ArrayList<>();
@@ -357,7 +358,7 @@ public class ClassifyQ {
 		 // if keysentence is "" then don't call others
 		 if ( keysentence.equals(""))
 		 {
-			 return ( new AnswerAndResources("","") );
+			 return ( new AnswerAndResourcesAndSummaries("","","","","") );
 		 }
 		 
 		 keysentence=weedout(keysentence);
@@ -435,7 +436,10 @@ public class ClassifyQ {
 		qalog.flush();
 		qalog.close();
 		replyxml.close();
-		return (new AnswerAndResources(urlanswerscore.answer,urlanswerscore.url));
+		// Below lined modified for 2016 Server
+		//return (new AnswerAndResources(urlanswerscore.answer,urlanswerscore.url));
+		return (new AnswerAndResourcesAndSummaries(urlanswerscore.answer,urlanswerscore.url,"","",""));
+		
 	}
 	
 

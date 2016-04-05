@@ -31,6 +31,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.trec.liveqa.ParseXMLString.UrlAnswerScore;
+import org.trec.liveqa.TrecLiveQaDFKIServer2016.AnswerAndResourcesAndSummaries;
 import org.trec.liveqa.TrecLiveQaDFKIServer.AnswerAndResources;
 
 /**
@@ -186,7 +187,7 @@ public class ClassifyYQuestionsFromQid {
     		float elapsedTimeSec=0;
     		
     		
-    		AnswerAndResources answerandresources=null;
+    		AnswerAndResourcesAndSummaries answerandresources=null;
             System.out.println("\nTitle:"+title+"\nBody:"+body+"\n");
         	
             answerandresources=classifyq.analyzeYQsnippet(title,body,categ,pat,maxtime,searchengine);
