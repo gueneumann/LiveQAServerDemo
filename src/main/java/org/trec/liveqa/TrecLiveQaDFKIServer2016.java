@@ -44,7 +44,7 @@ import fi.iki.elonen.NanoHTTPD;
  */
 public class TrecLiveQaDFKIServer2016 extends NanoHTTPD {
 
-    public static final String PARTICIPANT_ID = "demo-id-01";
+    public static final String PARTICIPANT_ID = "dfkiqa";
 
     public static final String QUESTION_ID_PARAMETER_NAME = "qid";
     public static final String QUESTION_TITLE_PARAMETER_NAME = "title";
@@ -244,23 +244,28 @@ public class TrecLiveQaDFKIServer2016 extends NanoHTTPD {
     	int maxtime=Integer.parseInt(maxtimestr);
 		
         ClassifyQ classifyq = new ClassifyQ();
-        String answer="",resources="";
+        String answer="DFKI:",resources="";
 
         try {
                         answerandresources=classifyq.analyzeYQsnippet(title,body,category,pat,maxtime,searchengine);
+                        answer="DFKI:"+answerandresources.answer();
+                        resources=answerandresources.resources();
+                        
                 } catch (IOException e) {
                     e.printStackTrace();
                 	System.err.println("analyzeYQsnippet didn't return answerandresources ");
                 }
 
-        answer=answerandresources.answer();
-        resources=answerandresources.resources();
+        
         System.out.println(qid+'\n'+title+'\n'+body+'\n'+category);
       	
     	
+    	System.out.println(answer+"\n"+resources+"\n");
+    	//System.out.println( dummyFirstSpan(title.length()));
+    	//System.out.println(dummyTwoSpans(body.length()));
     	
-        return new AnswerAndResourcesAndSummaries(answer, resources, dummyFirstSpan(title.length()),
-                        dummyTwoSpans(body.length()), "my summary");
+    	
+        return new AnswerAndResourcesAndSummaries(answer, resources, "","", "my summary");
         
         
     }
