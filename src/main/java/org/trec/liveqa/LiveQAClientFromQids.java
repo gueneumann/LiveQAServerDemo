@@ -215,17 +215,27 @@ public class LiveQAClientFromQids {
         System.out.println(url);
         
                 
-        GetMethod method = new GetMethod(url);
-        method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
+       // GetMethod method = new GetMethod(url);
+        //method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
         try {
-            int statusCode = client.executeMethod(method);
-            if (statusCode != HttpStatus.SC_OK) {
-                System.err.println("Method failed: " + method.getStatusLine());
-            }
-            InputStream responseBody = method.getResponseBodyAsStream();
+           // int statusCode = client.executeMethod(method);
+          //  if (statusCode != HttpStatus.SC_OK) {
+           //     System.err.println("Method failed: " + method.getStatusLine());
+            
+           // InputStream responseBody = method.getResponseBodyAsStream();
 
             // strip top levels
-            Document doc = Jsoup.parse(responseBody, "UTF8", url);
+           // Document doc = Jsoup.parse(responseBody, "UTF8", url);
+            
+            Document doc = Jsoup.connect(url)
+                    //.data("search", "search")
+                    //.data("title", "Test Cricket Lists")
+                    //fields which are being passed in post request.
+                    .userAgent("Mozilla")
+                    .post();
+        
+
+
             Element html = doc.child(0);
             
             Element body = html.child(1);
@@ -254,7 +264,7 @@ public class LiveQAClientFromQids {
             res[1]=findElementText(head, cb);
             res[2]=findElementText(head, cc);
 
-            responseBody.close();
+           // responseBody.close();
 
         } catch (HttpException e) {
             System.err.println("Fatal protocol violation: " + e.getMessage());
@@ -263,7 +273,7 @@ public class LiveQAClientFromQids {
             System.err.println("Fatal transport error: " + e.getMessage());
             e.printStackTrace();
         } finally {
-            method.releaseConnection();
+       //     method.releaseConnection();
         }
 
         return res;

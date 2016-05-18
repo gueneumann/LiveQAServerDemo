@@ -244,11 +244,11 @@ public class TrecLiveQaDFKIServer2016 extends NanoHTTPD {
     	int maxtime=Integer.parseInt(maxtimestr);
 		
         ClassifyQ classifyq = new ClassifyQ();
-        String answer="DFKI:",resources="";
+        String answer="",resources="";
 
         try {
                         answerandresources=classifyq.analyzeYQsnippet(title,body,category,pat,maxtime,searchengine);
-                        answer="DFKI:"+answerandresources.answer();
+                        answer=answerandresources.answer();
                         resources=answerandresources.resources();
                         
                 } catch (IOException e) {

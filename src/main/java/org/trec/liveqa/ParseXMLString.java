@@ -469,6 +469,11 @@ public class ParseXMLString  {
 		//	for (int i = 0; i < urlList.getLength() ; i++) {
 			for (int i = 0; i < urlList.getLength() && i < 10 ; i++) {
 				text=urlList.item(i).getTextContent().replaceAll("\"","");
+				// To ignore website http://trec.nist.gov
+				if ( text.contains("http://trec.nist.gov"))
+					continue;
+				// To ignore website http://trec.nist.gov
+				
 				System.out.println("Adding url "+i+":"+text);
 				urls.add(text);
 

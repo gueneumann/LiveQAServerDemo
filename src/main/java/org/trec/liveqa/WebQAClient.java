@@ -22,7 +22,7 @@ public class WebQAClient {
 	public static void main(String[] args) throws MalformedURLException, XmlRpcException
 	{
 		WebQAClient webqac=new WebQAClient();
-		String x=webqac.answers("Wisdom teeth extraction and normal food? Im eating mashed potatoes, soup, pudding, jello, and other soft foods. I was wondering, typically, when most people can go back to eating normal foods like pizzas, burgers, fries, etc.?");
+		String x=webqac.answers("Wisdom teeth extraction and normal food ? Im eating mashed potatoes, soup, pudding, jello, and other soft foods . I was wondering, typically, when most people can go back to eating normal foods like pizzas, burgers, fries, etc.?");
 		
 		System.out.println("Output:\n"+x);
 		
